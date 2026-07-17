@@ -1,0 +1,8 @@
+FunASR Paraformer-Large 模型文件:
+  funasr/paraformer_nano.onnx   INT8量化模型 (~228MB)
+  funasr/tokens.json            Byte-level BPE tokens (8404)
+  funasr/cmvn_mean.bin          CMVN 均值 (2240 bytes, 560 floats)
+  funasr/cmvn_invstd.bin        CMVN inverse std (2240 bytes, 560 floats)
+
+下载: python scripts/setup_funasr_model.py
+转换CMVN: python scripts/convert_cmvn.py

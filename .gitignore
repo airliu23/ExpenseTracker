@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+build/
+.idea/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+!gradle-wrapper.jar
+
+# 模型文件过大 (需运行脚本下载)
+app/src/main/assets/funasr/paraformer_nano.onnx

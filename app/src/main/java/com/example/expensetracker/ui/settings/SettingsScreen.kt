@@ -75,8 +75,8 @@ fun SettingsScreen(
     }
     var baseUrl by remember {
         mutableStateOf(
-            securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/")
-                ?: "https://api.deepseek.com/"
+            securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/v1/")
+                ?: "https://api.deepseek.com/v1/"
         )
     }
     var modelName by remember {
@@ -166,7 +166,7 @@ fun SettingsScreen(
                         value = baseUrl,
                         onValueChange = { baseUrl = it },
                         label = { Text("API Endpoint") },
-                        placeholder = { Text("https://api.deepseek.com/") },
+                        placeholder = { Text("https://api.deepseek.com/v1/") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true

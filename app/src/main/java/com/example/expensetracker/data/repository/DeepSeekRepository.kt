@@ -1,5 +1,6 @@
 package com.example.expensetracker.data.repository
 
+import android.content.SharedPreferences
 import com.example.expensetracker.data.remote.DeepSeekApiService
 import com.example.expensetracker.data.remote.dto.ChatRequest
 import com.example.expensetracker.data.remote.dto.Message
@@ -11,6 +12,7 @@ import javax.inject.Singleton
 @Singleton
 class DeepSeekRepository @Inject constructor(
     private val apiService: DeepSeekApiService,
+    private val securePrefs: SharedPreferences,
     moshi: Moshi
 ) {
     private val expenseResultAdapter = moshi.adapter(ExpenseParseResult::class.java)
@@ -44,7 +46,9 @@ class DeepSeekRepository @Inject constructor(
      * @return ExpenseParseResult 或 null (解析失败时)
      */
     suspend fun parseExpense(voiceText: String): ExpenseParseResult? {
+        val model = securePrefs.getString("deepseek_model", "deepseek-chat") ?: "deepseek-chat"
         val request = ChatRequest(
+            model = model,
             messages = listOf(
                 Message(role = "system", content = SYSTEM_PROMPT),
                 Message(role = "user", content = voiceText)

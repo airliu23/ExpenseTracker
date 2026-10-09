@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">智能记账</string>
+    <string name="accessibility_service_description">智能记账使用此服务检测双击电源键以快速启动语音记账功能。不会收集任何个人信息。</string>
+    <string name="voice_service_channel_name">语音记账</string>
+    <string name="voice_service_channel_desc">语音识别服务运行中</string>
+    <string name="voice_service_notification">正在准备语音识别…</string>
+    <string name="voice_listening">正在聆听…</string>
+</resources>

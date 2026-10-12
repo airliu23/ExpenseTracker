@@ -19,7 +19,7 @@ interface ExpenseDao {
     /** 按月份筛选账单 (yyyyMM格式参数) */
     @Query("""
         SELECT * FROM expenses
-        WHERE strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        WHERE strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         ORDER BY date DESC
     """)
     fun getExpensesByMonth(monthKey: String): Flow<List<ExpenseEntity>>
@@ -39,7 +39,7 @@ interface ExpenseDao {
     /** 单月汇总: 总支出 (排除收入) */
     @Query("""
         SELECT COALESCE(SUM(amount), 0) FROM expenses
-        WHERE strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        WHERE strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         AND category_name != '收入'
     """)
     suspend fun getTotalExpenseByMonth(monthKey: String): Double
@@ -47,7 +47,7 @@ interface ExpenseDao {
     /** 单月汇总: 总收入 */
     @Query("""
         SELECT COALESCE(SUM(amount), 0) FROM expenses
-        WHERE strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        WHERE strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         AND category_name = '收入'
     """)
     suspend fun getTotalIncomeByMonth(monthKey: String): Double
@@ -56,7 +56,7 @@ interface ExpenseDao {
     @Query("""
         SELECT category_name, COALESCE(SUM(amount), 0) as total
         FROM expenses
-        WHERE strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        WHERE strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         AND category_name != '收入'
         GROUP BY category_name
         ORDER BY total DESC
@@ -67,7 +67,7 @@ interface ExpenseDao {
     @Query("""
         SELECT category_name, COALESCE(SUM(amount), 0) as total
         FROM expenses
-        WHERE strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        WHERE strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         GROUP BY category_name
         ORDER BY CASE WHEN category_name = '收入' THEN -1 ELSE 1 END, total DESC
     """)
@@ -75,7 +75,7 @@ interface ExpenseDao {
 
     /** 最近 N 个月的月总支出趋势 */
     @Query("""
-        SELECT strftime('%Y%m', date / 1000, 'unixepoch') as month, COALESCE(SUM(amount), 0) as total
+        SELECT strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') as month, COALESCE(SUM(amount), 0) as total
         FROM expenses
         WHERE category_name != '收入'
         GROUP BY month
@@ -89,7 +89,7 @@ interface ExpenseDao {
     /** 按年汇总支出 (排除收入) */
     @Query("""
         SELECT COALESCE(SUM(amount), 0) FROM expenses
-        WHERE strftime('%Y', date / 1000, 'unixepoch') = :year
+        WHERE strftime('%Y', date / 1000, 'unixepoch', 'localtime') = :year
         AND category_name != '收入'
     """)
     suspend fun getTotalExpenseByYear(year: String): Double
@@ -97,7 +97,7 @@ interface ExpenseDao {
     /** 按年汇总收入 */
     @Query("""
         SELECT COALESCE(SUM(amount), 0) FROM expenses
-        WHERE strftime('%Y', date / 1000, 'unixepoch') = :year
+        WHERE strftime('%Y', date / 1000, 'unixepoch', 'localtime') = :year
         AND category_name = '收入'
     """)
     suspend fun getTotalIncomeByYear(year: String): Double
@@ -106,7 +106,7 @@ interface ExpenseDao {
     @Query("""
         SELECT category_name, COALESCE(SUM(amount), 0) as total
         FROM expenses
-        WHERE strftime('%Y', date / 1000, 'unixepoch') = :year
+        WHERE strftime('%Y', date / 1000, 'unixepoch', 'localtime') = :year
         AND category_name != '收入'
         GROUP BY category_name
         ORDER BY total DESC
@@ -117,7 +117,7 @@ interface ExpenseDao {
     @Query("""
         SELECT category_name, COALESCE(SUM(amount), 0) as total
         FROM expenses
-        WHERE strftime('%Y', date / 1000, 'unixepoch') = :year
+        WHERE strftime('%Y', date / 1000, 'unixepoch', 'localtime') = :year
         GROUP BY category_name
         ORDER BY CASE WHEN category_name = '收入' THEN -1 ELSE 1 END, total DESC
     """)
@@ -125,7 +125,7 @@ interface ExpenseDao {
 
     /** 最近 N 年的年总支出趋势 */
     @Query("""
-        SELECT strftime('%Y', date / 1000, 'unixepoch') as month, COALESCE(SUM(amount), 0) as total
+        SELECT strftime('%Y', date / 1000, 'unixepoch', 'localtime') as month, COALESCE(SUM(amount), 0) as total
         FROM expenses
         WHERE category_name != '收入'
         GROUP BY month
@@ -140,7 +140,7 @@ interface ExpenseDao {
     @Query("""
         SELECT * FROM expenses
         WHERE category_name = :categoryName
-        AND strftime('%Y%m', date / 1000, 'unixepoch') = :monthKey
+        AND strftime('%Y%m', date / 1000, 'unixepoch', 'localtime') = :monthKey
         ORDER BY date DESC
     """)
     suspend fun getExpensesByCategoryAndMonth(categoryName: String, monthKey: String): List<ExpenseEntity>
@@ -149,7 +149,7 @@ interface ExpenseDao {
     @Query("""
         SELECT * FROM expenses
         WHERE category_name = :categoryName
-        AND strftime('%Y', date / 1000, 'unixepoch') = :year
+        AND strftime('%Y', date / 1000, 'unixepoch', 'localtime') = :year
         ORDER BY date DESC
     """)
     suspend fun getExpensesByCategoryAndYear(categoryName: String, year: String): List<ExpenseEntity>

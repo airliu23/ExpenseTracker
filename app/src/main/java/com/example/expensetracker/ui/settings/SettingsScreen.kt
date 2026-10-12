@@ -1,6 +1,10 @@
 package com.example.expensetracker.ui.settings
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +53,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +88,20 @@ fun SettingsScreen(
     var modelName by remember {
         mutableStateOf(securePrefs.getString("deepseek_model", "deepseek-chat") ?: "deepseek-chat")
     }
+
+    // ── 通知保活：是否已关闭电池优化 ──
+    // 这是 Android 12+ 允许后台拉起前台服务的豁免条件，看门狗依赖它
+    val powerManager = remember {
+        context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    }
+    var batteryExempt by remember {
+        mutableStateOf(powerManager.isIgnoringBatteryOptimizations(context.packageName))
+    }
+    // 用户去系统设置里改完再回到本页，需要重新读一次
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        batteryExempt = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
     // ── 导出/导入 状态 ──
     val exporting by viewModel.exporting.collectAsState()
     val toast by viewModel.toast.collectAsState()
@@ -261,6 +281,93 @@ fun SettingsScreen(
                         Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
                         Text("导入数据库")
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 通知保活
+            Text(
+                text = "通知保活",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = if (batteryExempt) {
+                            "已关闭电池优化，通知栏的月度账单概览可以稳定常驻。"
+                        } else {
+                            "系统的电池优化会在空闲时清理后台服务，通知栏的月度账单概览会因此消失，" +
+                                    "而且不会自己恢复。关闭电池优化后可以明显改善。"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (batteryExempt) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+
+                    if (!batteryExempt) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                            .setData(Uri.parse("package:${context.packageName}"))
+                                    )
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "无法打开电池优化设置：${e.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("关闭电池优化")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                        .setData(Uri.parse("package:${context.packageName}"))
+                                )
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "无法打开应用设置：${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("打开系统应用设置（自启动 / 后台运行）")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "国产 ROM 在电池优化之外，还会单独限制「自启动」和「后台运行」，" +
+                                "建议在系统应用设置里一并放开。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
                 }
             }
 

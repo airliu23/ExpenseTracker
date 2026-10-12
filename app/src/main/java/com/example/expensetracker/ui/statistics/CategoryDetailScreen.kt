@@ -28,13 +28,18 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.expensetracker.domain.model.Expense
 import com.example.expensetracker.ui.components.CategoryIcon
+import com.example.expensetracker.ui.components.DeleteConfirmDialog
 import com.example.expensetracker.ui.components.ExpenseCard
 import com.example.expensetracker.ui.components.categoryColor
 import com.example.expensetracker.ui.theme.IncomeGreen
@@ -52,6 +57,9 @@ fun CategoryDetailScreen(
     val categoryTotal by viewModel.categoryTotal.collectAsState()
     val catColor = if (viewModel.isIncome) IncomeGreen else categoryColor(viewModel.displayTitle)
     val percentage = viewModel.getPercentage()
+
+    // 待删除项：点删除只记录目标，确认后才真正删
+    var pendingDelete by remember { mutableStateOf<Expense?>(null) }
 
     Scaffold(
         topBar = {
@@ -164,10 +172,22 @@ fun CategoryDetailScreen(
                         )
                     }
                     items(list, key = { it.id }) { e ->
-                        ExpenseCard(expense = e, onDelete = null)
+                        ExpenseCard(expense = e, onDelete = { pendingDelete = e })
                     }
                 }
             }
         }
+    }
+
+    // ── 二次确认 ──
+    pendingDelete?.let { target ->
+        DeleteConfirmDialog(
+            expense = target,
+            onConfirm = {
+                viewModel.deleteExpense(target)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null }
+        )
     }
 }

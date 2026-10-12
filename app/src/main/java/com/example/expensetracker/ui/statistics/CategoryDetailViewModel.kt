@@ -3,6 +3,7 @@ package com.example.expensetracker.ui.statistics
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.domain.model.Expense
 import com.example.expensetracker.domain.usecase.GetCategoryDetailUseCase
 import com.example.expensetracker.domain.usecase.GetStatisticsUseCase
@@ -16,7 +17,8 @@ import javax.inject.Inject
 class CategoryDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getCategoryDetailUseCase: GetCategoryDetailUseCase,
-    private val getStatisticsUseCase: GetStatisticsUseCase
+    private val getStatisticsUseCase: GetStatisticsUseCase,
+    private val expenseRepository: ExpenseRepository
 ) : ViewModel() {
 
     private val categoryName: String = savedStateHandle["categoryName"] ?: ""
@@ -60,6 +62,20 @@ class CategoryDetailViewModel @Inject constructor(
                 else
                     getStatisticsUseCase.getTotalExpenseByYear(periodKey)
             }
+        }
+    }
+
+    /**
+     * 删除一笔记录。
+     *
+     * 历史月份的账单只能从这个页面进入，之前 onDelete 传的是 null，
+     * 导致往前翻月份的记录无法删除。删完必须重新 loadData()，
+     * 否则列表、类别合计、占比三处都会停在删之前的状态。
+     */
+    fun deleteExpense(expense: Expense) {
+        viewModelScope.launch {
+            expenseRepository.deleteExpense(expense.id)
+            loadData()
         }
     }
 

@@ -43,7 +43,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -52,8 +54,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.example.expensetracker.domain.model.Expense
 import com.example.expensetracker.domain.model.ExpenseCategory
 import com.example.expensetracker.ui.components.CategoryIcon
+import com.example.expensetracker.ui.components.DeleteConfirmDialog
 import com.example.expensetracker.ui.components.ExpenseCard
 import com.example.expensetracker.ui.components.MonthSummaryCard
 import com.example.expensetracker.ui.components.categoryColor
@@ -84,11 +90,20 @@ fun HomeScreen(
     val snackbar = remember { SnackbarHostState() }
     val focusMgr = LocalFocusManager.current
 
+    // 待删除项：点删除只记录目标，确认后才真正删
+    var pendingDelete by remember { mutableStateOf<Expense?>(null) }
+
     val isVoiceActive = voiceState != com.example.expensetracker.service.VoiceState.Idle
     val isProcessing = voiceState == com.example.expensetracker.service.VoiceState.Processing
 
     LaunchedEffect(Unit) {
         viewModel.toast.collect { snackbar.showSnackbar(it) }
+    }
+
+    // 从统计页返回时刷新汇总。明细列表来自 Room Flow 会自动更新，
+    // 但总支出/总收入是手动查询出来的，不重新查就会和列表对不上（删过记录时尤其明显）。
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshSummary()
     }
 
     // 收到语音输入 → 自动填入并解析 (一次性消费)
@@ -254,12 +269,24 @@ fun HomeScreen(
                             )
                         }
                         items(list, key = { it.id }) { e ->
-                            ExpenseCard(expense = e, onDelete = { viewModel.deleteExpense(e) })
+                            ExpenseCard(expense = e, onDelete = { pendingDelete = e })
                         }
                     }
                 }
             }
         } // Scaffold
+
+        // ── 删除二次确认 ──
+        pendingDelete?.let { target ->
+            DeleteConfirmDialog(
+                expense = target,
+                onConfirm = {
+                    viewModel.deleteExpense(target)
+                    pendingDelete = null
+                },
+                onDismiss = { pendingDelete = null }
+            )
+        }
 
         // ── 语音录入动画遮罩 (按住说话时显示) ──
         VoiceOverlay(

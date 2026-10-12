@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.example.expensetracker.ui.components.CategoryIcon
 import com.example.expensetracker.ui.components.categoryColor
 import com.example.expensetracker.ui.theme.ExpenseRed
@@ -60,8 +62,19 @@ fun StatisticsScreen(
     val categorySummary by viewModel.categorySummary.collectAsState()
     val trend by viewModel.trend.collectAsState()
 
+    // 标签必须从上面 collectAsState() 出来的可观察状态派生，
+    // 否则读取发生在 ViewModel 的普通 getter 里，无法注册订阅：
+    // 切换月份时只有内层作用域会重组，这里会一直停留在进入页面时的月份。
     val displayLabel = if (periodType == PeriodType.MONTH)
-        viewModel.monthDisplayLabel else viewModel.yearDisplayLabel
+        "${selectedMonth.substring(0, 4)}年${selectedMonth.substring(4).toInt()}月"
+    else
+        "${selectedYear}年"
+
+    // 从分类明细页返回时重新统计：那边现在可以删记录，
+    // 不重查的话合计、分类排行、占比都会停在删除前的旧值。
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.loadStatistics()
+    }
 
     Scaffold(
         topBar = {
@@ -151,7 +164,7 @@ fun StatisticsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = if (periodType == PeriodType.MONTH) "本月概览" else "本年概览",
+                        text = if (periodType == PeriodType.MONTH) "当月概览" else "当年概览",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

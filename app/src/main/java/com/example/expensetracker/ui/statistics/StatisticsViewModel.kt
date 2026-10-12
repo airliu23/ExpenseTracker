@@ -22,7 +22,6 @@ class StatisticsViewModel @Inject constructor(
     private val getStatisticsUseCase: GetStatisticsUseCase
 ) : ViewModel() {
 
-    private val now = Calendar.getInstance()
     private val monthSdf = SimpleDateFormat("yyyyMM", Locale.CHINA)
     private val yearSdf = SimpleDateFormat("yyyy", Locale.CHINA)
 
@@ -37,16 +36,9 @@ class StatisticsViewModel @Inject constructor(
     private val _selectedMonth = MutableStateFlow(monthSdf.format(Date()))
     val selectedMonth: StateFlow<String> = _selectedMonth
 
-    /** 用于显示的月份标签，如 "2025年6月" */
-    val monthDisplayLabel: String
-        get() {
-            val m = _selectedMonth.value
-            return "${m.substring(0, 4)}年${m.substring(4).toInt()}月"
-        }
-
-    /** 用于显示的年份标签，如 "2025年" */
-    val yearDisplayLabel: String
-        get() = "${_selectedYear.value}年"
+    // 注意：这里不要再放 "monthDisplayLabel" 之类的普通 getter 供 UI 直接读取。
+    // StateFlow.value 不属于 Compose 快照系统，UI 读它不会建立订阅，
+    // 月份变化时不会触发重组。显示标签请在 Composable 里由 selectedMonth/selectedYear 派生。
 
     // ── 统计数据 ──
 
@@ -78,27 +70,28 @@ class StatisticsViewModel @Inject constructor(
 
     // ── 月份导航 ──
 
-    fun goToPreviousMonth() {
-        val current = _selectedMonth.value
+    /**
+     * 以 yyyyMM 为基准平移月份。
+     *
+     * 必须一次性 set(year, month, 1, 0, 0, 0)：Calendar 默认是宽松模式，
+     * 若先单独改 MONTH、而 DAY_OF_MONTH 还停在 29~31，遇到短月份会溢出
+     * （例：当前 31 号、把月份设成 2 月 → 2 月 31 日被规范化成 3 月 3 日）。
+     */
+    private fun shiftMonth(monthKey: String, delta: Int): String {
         val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, current.substring(0, 4).toInt())
-            set(Calendar.MONTH, current.substring(4).toInt() - 1)
-            set(Calendar.DAY_OF_MONTH, 1)
+            set(monthKey.substring(0, 4).toInt(), monthKey.substring(4).toInt() - 1, 1, 0, 0, 0)
         }
-        cal.add(Calendar.MONTH, -1)
-        _selectedMonth.value = monthSdf.format(cal.time)
+        cal.add(Calendar.MONTH, delta)
+        return monthSdf.format(cal.time)
+    }
+
+    fun goToPreviousMonth() {
+        _selectedMonth.value = shiftMonth(_selectedMonth.value, -1)
         loadStatistics()
     }
 
     fun goToNextMonth() {
-        val current = _selectedMonth.value
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, current.substring(0, 4).toInt())
-            set(Calendar.MONTH, current.substring(4).toInt() - 1)
-            set(Calendar.DAY_OF_MONTH, 1)
-        }
-        cal.add(Calendar.MONTH, 1)
-        val nextMonth = monthSdf.format(cal.time)
+        val nextMonth = shiftMonth(_selectedMonth.value, 1)
         // 不允许超过当前月份
         if (nextMonth <= monthSdf.format(Date())) {
             _selectedMonth.value = nextMonth

@@ -19,5 +19,7 @@ class BootReceiver : BroadcastReceiver() {
         } else {
             context.startService(serviceIntent)
         }
+        // 重启后重新武装看门狗
+        ServiceWatchdog.schedule(context)
     }
 }

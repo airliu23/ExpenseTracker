@@ -19,6 +19,15 @@
     <!-- 开机自启 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+        关闭电池优化。
+        空闲期系统（尤其华为/荣耀 ROM）会清理后台服务，通知随之消失；
+        而 Android 12+ 又禁止应用在后台启动前台服务，服务被杀后不会自己回来。
+        「已关闭电池优化」是 Android 12+ 允许后台拉起前台服务的官方豁免条件之一，
+        所以这个权限是看门狗能生效的前提。
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:name=".ExpenseTrackerApp"
         android:allowBackup="true"
@@ -49,6 +58,16 @@
         <service
             android:name=".service.MonthSummaryService"
             android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <!-- Android 14+ 要求 specialUse 类型必须声明用途，缺失会被 Play 审核拒绝 -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="persistent_monthly_expense_summary" />
+        </service>
+
+        <!-- 常驻通知看门狗：服务被系统清理后负责把它拉回来 -->
+        <receiver
+            android:name=".service.WatchdogReceiver"
             android:exported="false" />
 
         <!-- 开机自启 -->

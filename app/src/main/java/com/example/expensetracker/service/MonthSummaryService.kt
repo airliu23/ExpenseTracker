@@ -16,7 +16,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,34 +32,50 @@ class MonthSummaryService : Service() {
 
     @Inject lateinit var getStatisticsUseCase: GetStatisticsUseCase
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var refreshJob: Job? = null
 
     companion object {
         const val CHANNEL_ID = "month_summary"
         const val NOTIFY_ID = 4001
         const val TAG = "MonthSummary"
+
+        /**
+         * 服务是否存活。看门狗靠它判断要不要重新拉起服务；
+         * 进程已被系统杀掉时它自然为 false，正好触发拉起。
+         */
+        @Volatile
+        var isRunning: Boolean = false
+            private set
     }
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         createChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFY_ID, buildNotify("本月", 0.0, 0.0))
-        refreshJob = CoroutineScope(Dispatchers.Main).launch {
-            while (true) {
+        // MainActivity.onCreate 每次启动都会调 startForegroundService，
+        // 这里必须先取消上一条循环：否则每打开一次 App 就多出一条永久轮询，
+        // 而旧 Job 的引用被覆盖后再也没有人能取消它。
+        refreshJob?.cancel()
+        refreshJob = serviceScope.launch {
+            while (isActive) {
                 updateNotification()
                 delay(30_000)
             }
         }
+        ServiceWatchdog.schedule(this)
         return START_STICKY
     }
 
     override fun onBind(i: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        refreshJob?.cancel()
+        isRunning = false
+        serviceScope.cancel()
         super.onDestroy()
     }
 

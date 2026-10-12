@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.expensetracker.service.MonthSummaryService
+import com.example.expensetracker.service.ServiceWatchdog
 import com.example.expensetracker.service.VoiceResultBus
 import com.example.expensetracker.service.FunAsrVoiceService
 import com.example.expensetracker.ui.navigation.NavGraph
@@ -85,6 +86,8 @@ class MainActivity : ComponentActivity() {
                 startService(intent)
             }
         } catch (_: Exception) { }
+        // 即使这次启动失败也要把看门狗排上，让它在服务被杀后能拉回来
+        ServiceWatchdog.schedule(this)
     }
 
     /** 启动 FunASR Paraformer-Nano 离线语音引擎 */

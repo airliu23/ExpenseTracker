@@ -33,3 +33,26 @@
 # 这些类仅存在于编译期、不在运行时 classpath 上。
 # AGP 8 默认把"缺失类"当硬错误，不 -dontwarn 会导致 R8 直接失败。
 -dontwarn com.google.errorprone.annotations.**
+
+# ONNX Runtime（离屏语音识别引擎）
+#
+# ORT 的 native 层（libonnxruntime4j_jni.so）不通过 JNI 注册表，而是用
+# FindClass / GetMethodID 按**字符串类名和字段名**回查 Java 侧。R8 默认会
+# 把它们当普通类改名：
+#   ai.onnxruntime.OnnxJavaType             -> b.a
+#   ai.onnxruntime.OrtEnvironment$OrtEnvCloser -> b.b
+#   ai.onnxruntime.OrtException             -> b.d
+#   ai.onnxruntime.OrtException$OrtErrorCode -> b.c
+#   ai.onnxruntime.OrtLoggingLevel          -> b.e
+#   ai.onnxruntime.OrtProvider              -> b.f
+#   ai.onnxruntime.OrtSession$Result        -> b.g
+#   ai.onnxruntime.OrtUtil                  -> b.h
+#   ai.onnxruntime.TensorInfo$OnnxTensorType -> b.i
+#   ai.onnxruntime.platform.Fp16Conversions -> c.a
+# 改名后 native 找不到这些类，进程直接原生崩溃（SIGABRT），
+# logcat 里**看不到任何 Java 异常**，只有 app 突然消失。
+# 症状：release 版一点语音识别就闪退，debug 版完全正常。
+-keep class ai.onnxruntime.** { *; }
+-keep interface ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
+

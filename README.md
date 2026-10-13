@@ -6,6 +6,28 @@
 
 ---
 
+## 下载
+
+前往 [**Releases**](https://github.com/airliu23/ExpenseTracker/releases/latest) 下载最新 APK：
+
+| 文件 | 说明 |
+|------|------|
+| [`ExpenseTracker-v1.4.0-release.apk`](https://github.com/airliu23/ExpenseTracker/releases/download/v1.4.0/ExpenseTracker-v1.4.0-release.apk) | release 签名 · 343 MB |
+
+直接安装即可，无需自行编译（238 MB 的离线语音模型已打包在内）。
+
+> **签名密钥已更换**：本版起改用新的 release 密钥签名。此前用 debug 密钥签名的 v1.3.0 无法覆盖升级，需先卸载 —— 建议先在「设置 → 导出数据库」备份，安装后再导入。
+
+---
+
+## 界面
+
+| 首页 | 统计 | 设置 |
+|:----:|:----:|:----:|
+| ![首页](docs/screenshots/01-home.png) | ![统计](docs/screenshots/02-statistics.png) | ![设置](docs/screenshots/03-settings.png) |
+
+---
+
 ## 功能
 
 - **离线语音识别** —— 基于 FunASR Paraformer 的 ONNX 模型本地推理，边说边出字，松开即出结果
@@ -15,7 +37,7 @@
 - **数据统计** —— 本月收支概览、分类占比饼图、月度趋势、分类排行，点进分类可看每笔明细
 - **隐私优先** —— 账本存本地 Room 数据库，API Key 加密存储；无账号体系、无广告、无统计 SDK
 - **数据导出导入** —— JSON 格式，经系统文件选择器读写，方便备份与迁移
-- **月度概览** —— 通过本地通知推送当月账单摘要
+- **月度概览** —— 常驻通知推送当月账单摘要，内置看门狗在服务被系统清理后自动拉起
 
 ---
 
@@ -115,12 +137,23 @@ sdk.dir=/path/to/Android/Sdk
 
 ```bash
 gradle assembleDebug        # Debug APK
-gradle assembleRelease      # Release APK（需自行配置签名）
+gradle assembleRelease      # Release APK，读取 keystore.properties 签名
 ```
+
+Release 签名配置从项目根目录的 `keystore.properties` 读取（该文件已被 `.gitignore` 忽略，密钥不入库）：
+
+```properties
+storeFile=/path/to/your-release.jks
+storePassword=******
+keyAlias=your-alias
+keyPassword=******
+```
+
+文件不存在时 `assembleRelease` 仍可执行，只是产物未签名，便于他人克隆后自行构建。
 
 产物位于 `app/build/outputs/apk/`。
 
-> **注意**：打包出的 APK 约 **360 MB**，因为离线语音模型未压缩地打进了包里。这是该方案的固有代价。
+> **注意**：打包出的 APK 约 **343 MB**（release，经 R8 混淆）/ **360 MB**（debug），因为 238 MB 的离线语音模型未压缩地打进了包里。这是该方案的固有代价。
 
 ---
 
@@ -163,7 +196,7 @@ gradle assembleRelease      # Release APK（需自行配置签名）
 
 ## 已知问题
 
-- **APK 体积大（约 360 MB）**：离线模型 238 MB 且设置了不压缩，无法通过代码瘦身
+- **APK 体积大（release 约 343 MB）**：离线模型 238 MB 且设置了不压缩，无法通过代码瘦身
 - **应用图标**：`drawable-xhdpi/ic_launcher_foreground.png` 是一张不透明位图，作为自适应图标前景层会遮住背景色；且它与 `drawable/ic_launcher_foreground.xml` 同名冲突，实际生效的是前者
 - **发布版日志**：`HttpLoggingInterceptor` 当前为 `BODY` 级别且未区分构建类型，release 包同样会输出请求内容到 logcat
 - **无测试**：项目尚未包含任何单元测试或仪器测试
@@ -173,4 +206,4 @@ gradle assembleRelease      # Release APK（需自行配置签名）
 
 ## 许可证
 
-尚未指定开源许可证。如需开源，建议补充 `LICENSE` 文件。
+[MIT](LICENSE) © 2026 airliu

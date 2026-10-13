@@ -164,8 +164,8 @@ keyPassword=******
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | API Key | 空 | 你的 DeepSeek API Key，加密存储于设备本地 |
-| API Endpoint | `https://api.deepseek.com/v1/` | 兼容 OpenAI 接口格式，可指向其他服务 |
-| 模型名称 | `deepseek-chat` | 可替换为其他兼容模型 |
+| API Endpoint | `https://api.deepseek.com/` | 兼容 OpenAI 接口格式，可指向其他服务 |
+| 模型名称 | `deepseek-v4-flash` | 可替换为其他兼容模型 |
 
 未填写 API Key 时，语音解析不可用，但手动记账、统计、导出等全部功能正常。
 

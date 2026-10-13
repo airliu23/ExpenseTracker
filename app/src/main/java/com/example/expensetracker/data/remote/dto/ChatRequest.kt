@@ -5,7 +5,7 @@ import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
 data class ChatRequest(
-    @Json(name = "model") val model: String = "deepseek-chat",
+    @Json(name = "model") val model: String = "deepseek-v4-flash",
     @Json(name = "messages") val messages: List<Message>,
     @Json(name = "temperature") val temperature: Double = 0.3,
     @Json(name = "max_tokens") val maxTokens: Int = 256,

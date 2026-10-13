@@ -69,7 +69,8 @@ class DeepSeekRepository @Inject constructor(
      * @return ExpenseParseResult 或 null (重试耗尽后仍失败时)
      */
     suspend fun parseExpense(voiceText: String): ExpenseParseResult? {
-        val model = securePrefs.getString("deepseek_model", "deepseek-chat") ?: "deepseek-chat"
+        val model = securePrefs.getString("deepseek_model", "deepseek-v4-flash")
+            ?: "deepseek-v4-flash"
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date())
         var previousAttemptFailed = false
 

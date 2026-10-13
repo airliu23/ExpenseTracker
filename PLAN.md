@@ -184,7 +184,7 @@ ExpenseTracker/
 ```
 
 ### DeepSeek API 配置
-- **模型**: `deepseek-chat` (DeepSeek V4)
+- **模型**: `deepseek-v4-flash` (DeepSeek V4)
 - **API Key**: 用户在设置页输入，EncryptedSharedPreferences 加密存储
 - **Base URL**: `https://api.deepseek.com/`
 - 兼容 OpenAI SDK，可直接使用 `com.openai:openai-client` 或 Retrofit 手写接口
@@ -227,7 +227,7 @@ ExpenseTracker/
 ### 设置页 (SettingsScreen)
 - DeepSeek API Key 配置 (EncryptedSharedPreferences 加密存储)
 - DeepSeek API Endpoint 自定义（默认 `https://api.deepseek.com/`）
-- 模型名称配置（默认 `deepseek-chat`）
+- 模型名称配置（默认 `deepseek-v4-flash`）
 - 自定义分类管理
 - 数据导出/导入 (JSON/CSV)
 - 关于
@@ -259,4 +259,4 @@ ExpenseTracker/
 
 1. **电源键双击** ✅ — 用户自行授权，使用 AccessibilityService 监听 `TYPE_POWER_KEY`
 2. **AI API Key** ✅ — 用户在设置页自行输入 DeepSeek API Key，加密存储
-3. **AI 模型** ✅ — DeepSeek V4 (`deepseek-chat`)，兼容 OpenAI 接口格式
+3. **AI 模型** ✅ — DeepSeek V4 (`deepseek-v4-flash`)，兼容 OpenAI 接口格式

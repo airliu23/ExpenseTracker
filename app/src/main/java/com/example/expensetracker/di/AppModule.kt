@@ -103,8 +103,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient, moshi: Moshi, securePrefs: SharedPreferences): Retrofit {
-        val baseUrl = securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/v1/")
-            ?: "https://api.deepseek.com/v1/"
+        val baseUrl = securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/")
+            ?: "https://api.deepseek.com/"
         return Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(okHttpClient)

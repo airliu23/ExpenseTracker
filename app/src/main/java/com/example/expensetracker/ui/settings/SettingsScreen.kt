@@ -82,12 +82,14 @@ fun SettingsScreen(
     }
     var baseUrl by remember {
         mutableStateOf(
-            securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/v1/")
-                ?: "https://api.deepseek.com/v1/"
+            securePrefs.getString("deepseek_base_url", "https://api.deepseek.com/")
+                ?: "https://api.deepseek.com/"
         )
     }
     var modelName by remember {
-        mutableStateOf(securePrefs.getString("deepseek_model", "deepseek-chat") ?: "deepseek-chat")
+        mutableStateOf(
+            securePrefs.getString("deepseek_model", "deepseek-v4-flash") ?: "deepseek-v4-flash"
+        )
     }
 
     // ── 通知保活：是否已关闭电池优化 ──
@@ -187,7 +189,7 @@ fun SettingsScreen(
                         value = baseUrl,
                         onValueChange = { baseUrl = it },
                         label = { Text("API Endpoint") },
-                        placeholder = { Text("https://api.deepseek.com/v1/") },
+                        placeholder = { Text("https://api.deepseek.com/") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -199,7 +201,7 @@ fun SettingsScreen(
                         value = modelName,
                         onValueChange = { modelName = it },
                         label = { Text("模型名称") },
-                        placeholder = { Text("deepseek-chat") },
+                        placeholder = { Text("deepseek-v4-flash") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )

@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.expensetracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -44,6 +44,9 @@ android {
 
     buildFeatures {
         compose = true
+        // 设置页要读 BuildConfig.VERSION_NAME 显示版本号，
+        // 否则只能硬编码，发版时必然忘记同步
+        buildConfig = true
     }
 
     // Kotlin 2.0+ Compose 编译器由 kotlin-compose 插件管理，不需要 composeOptions

@@ -9,6 +9,7 @@ import com.example.expensetracker.domain.model.ExpenseSource
 import com.example.expensetracker.domain.usecase.AddExpenseUseCase
 import com.example.expensetracker.domain.usecase.ParseVoiceExpenseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +47,9 @@ class AddExpenseViewModel @Inject constructor(
 
     fun setInputText(value: String) { _inputText.value = value }
 
+    /** 当前正在进行的解析任务，用于「解析中」时取消 */
+    private var parseJob: Job? = null
+
     /** AI 解析用户输入的文字描述 */
     fun parseInput() {
         val text = _inputText.value.trim()
@@ -53,18 +57,31 @@ class AddExpenseViewModel @Inject constructor(
             _errorEvent.trySend("请输入消费描述")
             return
         }
-        viewModelScope.launch {
+        // 已有一个解析在跑时忽略重复点击，避免多个请求叠加把界面拖住
+        if (parseJob?.isActive == true) return
+        parseJob = viewModelScope.launch {
             _parsing.value = true
             _parsedResult.value = null
-            parseVoiceExpenseUseCase(text)
-                .onSuccess { result ->
-                    _parsedResult.value = result
-                }
-                .onFailure { error ->
-                    _errorEvent.trySend(error.message ?: "AI 解析失败，请重试")
-                }
-            _parsing.value = false
+            try {
+                parseVoiceExpenseUseCase(text)
+                    .onSuccess { result ->
+                        _parsedResult.value = result
+                    }
+                    .onFailure { error ->
+                        _errorEvent.trySend(error.message ?: "AI 解析失败，请重试")
+                    }
+            } finally {
+                // 必须放在 finally：协程被取消时也要复位，否则按钮会永久停在「AI 正在解析…」
+                _parsing.value = false
+            }
         }
+    }
+
+    /** 用户在解析过程中点击按钮时取消当前解析 */
+    fun cancelParse() {
+        parseJob?.cancel()
+        parseJob = null
+        _parsing.value = false
     }
 
     /** 确认并保存 AI 解析结果 */

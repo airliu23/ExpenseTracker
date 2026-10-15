@@ -13,6 +13,7 @@ import com.example.expensetracker.domain.usecase.ParseVoiceExpenseUseCase
 import com.example.expensetracker.service.VoiceResultBus
 import com.example.expensetracker.service.VoiceState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,7 +68,21 @@ class HomeViewModel @Inject constructor(
     private val _toast = Channel<String>(Channel.BUFFERED)
     val toast = _toast.receiveAsFlow()
 
-    fun setInput(value: String) { _inputText.value = value }
+    /** 当前正在进行的解析任务，用于「解析中」时取消 */
+    private var parseJob: Job? = null
+
+    /**
+     * 输入框里的内容是否来自语音识别。
+     *
+     * 首页同时支持「按住说话」和「手动打字」两条路径，保存时要据此标记来源，
+     * 否则语音记的账会被错误地记成手动录入（首页不会显示 🎤 标记）。
+     */
+    private var inputFromVoice = false
+
+    fun setInput(value: String) {
+        _inputText.value = value
+        inputFromVoice = false // 手动输入
+    }
 
     fun parseInput() {
         val text = _inputText.value.trim()
@@ -75,24 +90,44 @@ class HomeViewModel @Inject constructor(
             _toast.trySend("请输入消费描述")
             return
         }
-        viewModelScope.launch {
+        // 已有一个解析在跑时忽略重复点击，避免多个请求叠加把界面拖住
+        if (parseJob?.isActive == true) return
+        parseJob = viewModelScope.launch {
             _parsing.value = true
             _parsedResult.value = null
-            parseVoiceExpenseUseCase(text)
-                .onSuccess { _parsedResult.value = it }
-                .onFailure { e -> _toast.trySend(e.message ?: "AI 解析失败") }
-            _parsing.value = false
+            try {
+                parseVoiceExpenseUseCase(text)
+                    .onSuccess { _parsedResult.value = it }
+                    .onFailure { e -> _toast.trySend(e.message ?: "AI 解析失败") }
+            } finally {
+                // 必须放在 finally：协程被取消时（用户点取消、页面销毁等）也要复位，
+                // 否则按钮会永久停在「AI 解析中…」，界面再也回不来
+                _parsing.value = false
+            }
         }
+    }
+
+    /** 用户在解析过程中点击按钮时取消当前解析 */
+    fun cancelParse() {
+        parseJob?.cancel()
+        parseJob = null
+        _parsing.value = false
     }
 
     fun saveParsed() {
         val result = _parsedResult.value ?: return
-        val expense = result.toExpense().copy(source = ExpenseSource.MANUAL)
+        // 按真实来源标记：语音记的账要显示 🎤，手动打字的才是 MANUAL。
+        // 这里原先无条件 copy(source = MANUAL)，把 toExpense() 标好的 VOICE 覆盖掉了，
+        // 导致首页语音记账的来源永远是「手动」。
+        val expense = result.toExpense().copy(
+            source = if (inputFromVoice) ExpenseSource.VOICE else ExpenseSource.MANUAL
+        )
         viewModelScope.launch {
             addExpenseUseCase(expense)
                 .onSuccess {
                     _inputText.value = ""
                     _parsedResult.value = null
+                    inputFromVoice = false
                     refreshSummary()
                     _toast.trySend("已保存")
                 }
@@ -104,12 +139,14 @@ class HomeViewModel @Inject constructor(
     fun cancelParsed() {
         _inputText.value = ""
         _parsedResult.value = null
+        inputFromVoice = false
     }
 
     /** 收到语音结果时调用 */
     fun onVoiceInput(text: String) {
         if (text.isBlank()) return
         _inputText.value = text
+        inputFromVoice = true // 这条内容来自语音
         parseInput()
     }
 

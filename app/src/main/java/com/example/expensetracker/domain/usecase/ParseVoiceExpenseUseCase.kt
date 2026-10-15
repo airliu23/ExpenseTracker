@@ -14,11 +14,7 @@ class ParseVoiceExpenseUseCase @Inject constructor(
         if (voiceText.isBlank()) {
             return Result.failure(IllegalArgumentException("语音文本为空"))
         }
-        val result = deepSeekRepository.parseExpense(voiceText)
-        return if (result != null) {
-            Result.success(result)
-        } else {
-            Result.failure(Exception("AI 解析失败，请重试"))
-        }
+        // 直接透传仓储层的结果：失败时它的 message 已经是可以展示给用户的中文原因
+        return deepSeekRepository.parseExpense(voiceText)
     }
 }

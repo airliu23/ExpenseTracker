@@ -8,6 +8,7 @@ import com.example.expensetracker.domain.model.ExpenseParseResult
 import com.squareup.moshi.Moshi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,11 +24,40 @@ class DeepSeekRepository @Inject constructor(
     private val expenseResultAdapter = moshi.adapter(ExpenseParseResult::class.java)
 
     companion object {
-        /** 失败后最多重试次数（含首次共 MAX_RETRIES + 1 次尝试） */
-        private const val MAX_RETRIES = 10
+        /**
+         * 最多尝试次数（首次 + 重试）。
+         *
+         * 解析失败绝大多数是永久性问题（Key 无效、余额不足、模型名错误），
+         * 重试 10 次既不会变好，还让界面白等几分钟。3 次足够覆盖网络抖动。
+         */
+        private const val MAX_ATTEMPTS = 3
 
         /** 每次重试前的等待间隔，避免立即重试撞上同样的瞬时故障 */
-        private const val RETRY_DELAY_MS = 500L
+        private const val RETRY_DELAY_MS = 800L
+
+        /**
+         * 单次解析的硬性总上限。
+         *
+         * 超过就放弃并把失败原因交给界面 —— 绝不允许出现「AI 解析中…」永久卡住的情况。
+         */
+        private const val TOTAL_TIMEOUT_MS = 45_000L
+
+        /**
+         * 把 HTTP 状态码翻译成用户能看懂、并能据此行动的原因。
+         *
+         * 以前无论什么错误都只显示「AI 解析失败，请重试」，
+         * 用户根本无从判断是 Key 过期、欠费还是模型名写错。
+         */
+        private fun describeHttpError(code: Int): String = when (code) {
+            400 -> "请求被拒绝（HTTP 400），通常是「模型名称」填错了，请到设置里检查"
+            401 -> "API Key 无效或已过期（HTTP 401），请到设置里重新填写"
+            402 -> "DeepSeek 账户余额不足（HTTP 402），请先充值"
+            403 -> "该 API Key 无权访问这个模型（HTTP 403）"
+            404 -> "接口地址或模型不存在（HTTP 404），请检查 Endpoint 与模型名称"
+            429 -> "请求过于频繁被限流（HTTP 429），请稍后重试"
+            in 500..599 -> "DeepSeek 服务端错误（HTTP $code），请稍后重试"
+            else -> "请求失败（HTTP $code）"
+        }
 
         /** 上一次输出无法解析时，追加到重试请求中的纠正提示 */
         private fun retryHint(today: String) = """
@@ -59,29 +89,39 @@ class DeepSeekRepository @Inject constructor(
     }
 
     /**
-     * 将语音文本发送给 DeepSeek 解析成消费记录
+     * 将语音文本发送给 DeepSeek 解析成消费记录。
      *
-     * AI 解析会概率性失败（网络抖动、限流、模型返回格式不规范等），
-     * 失败后自动重试，最多重试 [MAX_RETRIES] 次；
-     * 解析失败时，重试请求会附带纠正提示，让模型修正输出格式。
+     * 行为约定：
+     * - 整个解析过程受 [TOTAL_TIMEOUT_MS] 约束，绝不无限等待；
+     * - 4xx（429 限流除外）属于永久性错误，立即失败并说明具体原因，不做无谓重试；
+     * - 只有网络异常、5xx、429 和模型输出格式错误才重试，最多 [MAX_ATTEMPTS] 次；
+     * - 失败时返回 [DeepSeekException]，其 message 已经是可直接展示给用户的中文说明。
      *
      * @param voiceText 语音识别结果文本
-     * @return ExpenseParseResult 或 null (重试耗尽后仍失败时)
+     * @return 成功时 Result.success(ExpenseParseResult)，失败时 Result.failure(DeepSeekException)
      */
-    suspend fun parseExpense(voiceText: String): ExpenseParseResult? {
+    suspend fun parseExpense(voiceText: String): Result<ExpenseParseResult> {
+        return withTimeoutOrNull(TOTAL_TIMEOUT_MS) { parseExpenseAttempts(voiceText) }
+            ?: Result.failure(
+                DeepSeekException("AI 解析超时（超过 ${TOTAL_TIMEOUT_MS / 1000} 秒），请检查网络后重试")
+            )
+    }
+
+    private suspend fun parseExpenseAttempts(voiceText: String): Result<ExpenseParseResult> {
         val model = securePrefs.getString("deepseek_model", "deepseek-v4-flash")
             ?: "deepseek-v4-flash"
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date())
-        var previousAttemptFailed = false
+        var lastError = "未知原因"
+        var lastFailureWasFormat = false
 
-        // 首次尝试 + 最多 MAX_RETRIES 次重试
-        repeat(MAX_RETRIES + 1) { attempt ->
+        repeat(MAX_ATTEMPTS) { attempt ->
             if (attempt > 0) {
                 delay(RETRY_DELAY_MS)
             }
 
-            // 上次尝试失败时，追加提示让模型纠正输出格式
-            val userContent = if (previousAttemptFailed) voiceText + retryHint(today) else voiceText
+            // 只有「模型输出格式不对」才值得追加纠正提示；
+            // 网络错误或鉴权失败时追加提示毫无帮助，只会让请求更长更慢
+            val userContent = if (lastFailureWasFormat) voiceText + retryHint(today) else voiceText
             val request = ChatRequest(
                 model = model,
                 messages = listOf(
@@ -93,23 +133,32 @@ class DeepSeekRepository @Inject constructor(
             try {
                 val httpResponse = apiService.chatCompletions(request)
                 if (!httpResponse.isSuccessful) {
-                    previousAttemptFailed = true // HTTP 错误(限流/网关等)
+                    val code = httpResponse.code()
+                    // 4xx（429 限流除外）是请求本身就有问题：鉴权失败、余额不足、模型名错误……
+                    // 再重试多少次都是同一个结果，直接失败并把真实原因告诉用户
+                    if (code in 400..499 && code != 429) {
+                        return Result.failure(DeepSeekException(describeHttpError(code)))
+                    }
+                    lastError = describeHttpError(code)
+                    lastFailureWasFormat = false
                     return@repeat
                 }
                 val choice = httpResponse.body()?.choices?.firstOrNull()
                 val content = choice?.message?.content
                 val result = if (content != null) parseJsonResponse(content) else null
                 if (result != null) {
-                    return result
+                    return Result.success(result)
                 }
-                previousAttemptFailed = true // 空响应或 JSON 解析失败
+                lastError = "模型返回的内容无法解析为 JSON"
+                lastFailureWasFormat = true
             } catch (e: CancellationException) {
                 throw e // 协程取消必须向上传播，不能吞掉
             } catch (e: Exception) {
-                previousAttemptFailed = true // 网络错误等
+                lastError = e.message ?: e.javaClass.simpleName
+                lastFailureWasFormat = false
             }
         }
-        return null
+        return Result.failure(DeepSeekException("AI 解析失败：$lastError"))
     }
 
     private fun parseJsonResponse(jsonContent: String): ExpenseParseResult? {
@@ -124,3 +173,11 @@ class DeepSeekRepository @Inject constructor(
         }
     }
 }
+
+/**
+ * AI 解析失败。
+ *
+ * [message] 已经是能直接展示给用户的中文原因，例如
+ * 「API Key 无效或已过期（HTTP 401），请到设置里重新填写」。
+ */
+class DeepSeekException(message: String) : Exception(message)

@@ -115,9 +115,10 @@ fun AddExpenseScreen(
 
             // ── AI 解析按钮 ──
             Button(
-                onClick = { viewModel.parseInput() },
+                onClick = { if (parsing) viewModel.cancelParse() else viewModel.parseInput() },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                enabled = !parsing && inputText.isNotBlank()
+                // 解析中保持可点，让用户能随时取消，而不是干等到超时
+                enabled = parsing || inputText.isNotBlank()
             ) {
                 if (parsing) {
                     CircularProgressIndicator(
@@ -126,7 +127,7 @@ fun AddExpenseScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("AI 正在解析…")
+                    Text("AI 正在解析… 点击取消")
                 } else {
                     Icon(Icons.Filled.Refresh, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))

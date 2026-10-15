@@ -160,15 +160,16 @@ fun HomeScreen(
                     Button(
                         onClick = {
                             focusMgr.clearFocus()
-                            viewModel.parseInput()
+                            if (parsing) viewModel.cancelParse() else viewModel.parseInput()
                         },
                         modifier = Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp),
-                        enabled = !parsing && inputText.isNotBlank()
+                        // 解析中保持可点，让用户能随时取消，而不是干等到超时
+                        enabled = parsing || inputText.isNotBlank()
                     ) {
                         if (parsing) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                             Spacer(Modifier.width(8.dp))
-                            Text("AI 解析中…")
+                            Text("AI 解析中… 点击取消")
                         } else {
                             Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))

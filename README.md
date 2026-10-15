@@ -12,7 +12,7 @@
 
 | 文件 | 说明 |
 |------|------|
-| [`ExpenseTracker-v1.4.0-release.apk`](https://github.com/airliu23/ExpenseTracker/releases/download/v1.4.0/ExpenseTracker-v1.4.0-release.apk) | release 签名 · 343 MB |
+| [`ExpenseTracker-v1.4.1-release.apk`](https://github.com/airliu23/ExpenseTracker/releases/download/v1.4.1/ExpenseTracker-v1.4.1-release.apk) | release 签名 · 343 MB |
 
 直接安装即可，无需自行编译（238 MB 的离线语音模型已打包在内）。
 
